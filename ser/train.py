@@ -11,6 +11,7 @@ def train_model(
     validation_dataloader : DataLoader,
     epochs : int,
     device : torch.device,
+    print_freq : int = 100, # how often we print batch performance
 ):
     # trains model
     for epoch in range(epochs):
@@ -23,10 +24,12 @@ def train_model(
             loss = F.nll_loss(output, labels)
             loss.backward()
             optimizer.step()
-            print(
-                f"Train Epoch: {epoch} | Batch: {i}/{len(training_dataloader)} "
-                f"| Loss: {loss.item():.4f}"
-            )
+            
+            if not(i % print_freq):
+                print(
+                    f"Train Epoch: {epoch} | Batch: {i}/{len(training_dataloader)} "
+                    f"| Loss: {loss.item():.4f}"
+                )
             
         # validate at the end of each epoch
         val_loss = 0

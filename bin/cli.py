@@ -1,10 +1,6 @@
 from pathlib import Path
 import torch
 from torch import optim
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import DataLoader
-from torchvision import datasets, transforms
 
 from ser.model import Net
 from ser.transforms import get_transforms
