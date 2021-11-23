@@ -9,6 +9,7 @@ from torchvision import datasets, transforms
 from ser.model import Net
 from ser.transforms import get_transforms
 from ser.data import get_data_loader
+from ser.train import train_model
 
 import typer
 import json
@@ -58,37 +59,11 @@ def train(
     training_dataloader = get_data_loader(DATA_DIR, True, ts, batch_size)
     validation_dataloader = get_data_loader(DATA_DIR, False, ts, batch_size)
 
-    # train
-    for epoch in range(epochs):
-        for i, (images, labels) in enumerate(training_dataloader):
-            images, labels = images.to(device), labels.to(device)
-            model.train()
-            optimizer.zero_grad()
-            output = model(images)
-            loss = F.nll_loss(output, labels)
-            loss.backward()
-            optimizer.step()
-            print(
-                f"Train Epoch: {epoch} | Batch: {i}/{len(training_dataloader)} "
-                f"| Loss: {loss.item():.4f}"
-            )
-            # validate
-            val_loss = 0
-            correct = 0
-            with torch.no_grad():
-                for images, labels in validation_dataloader:
-                    images, labels = images.to(device), labels.to(device)
-                    model.eval()
-                    output = model(images)
-                    val_loss += F.nll_loss(output, labels, reduction="sum").item()
-                    pred = output.argmax(dim=1, keepdim=True)
-                    correct += pred.eq(labels.view_as(pred)).sum().item()
-                val_loss /= len(validation_dataloader.dataset)
-                val_acc = correct / len(validation_dataloader.dataset)
+    # train model
+    train_model(model, optimizer, 
+                training_dataloader, validation_dataloader,
+                epochs, device)
 
-                print(
-                    f"Val Epoch: {epoch} | Avg Loss: {val_loss:.4f} | Accuracy: {val_acc}"
-                )
 
 @main.command()
 def infer():
