@@ -5,7 +5,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
+
 from ser.model import Net
+from ser.transforms import get_transforms
+from ser.data import get_data_loader
 
 import typer
 import json
@@ -49,24 +52,11 @@ def train(
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     # torch transforms
-    ts = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))]
-    )
+    ts = get_transforms()
 
     # dataloaders
-    training_dataloader = DataLoader(
-        datasets.MNIST(root="../data", download=True, train=True, transform=ts),
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=1,
-    )
-
-    validation_dataloader = DataLoader(
-        datasets.MNIST(root=DATA_DIR, download=True, train=False, transform=ts),
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=1,
-    )
+    training_dataloader = get_data_loader(DATA_DIR, True, ts, batch_size)
+    validation_dataloader = get_data_loader(DATA_DIR, False, ts, batch_size)
 
     # train
     for epoch in range(epochs):
