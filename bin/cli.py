@@ -7,8 +7,9 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
 import typer
+import json
 
-main = typer.Typer()
+main = typer.Typer() #
 
 PROJECT_ROOT = Path(__file__).parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
@@ -16,17 +17,29 @@ DATA_DIR = PROJECT_ROOT / "data"
 
 @main.command()
 def train(
-    name: str = typer.Option(
+    # Typer options - make command like arguments better
+    # `...` makes this option mandatory (i.e. users have to pass in this argument)
+    # `help` info that gets printed out if you run `python cli.py --help` 
+    name: str = typer.Option( 
         ..., "-n", "--name", help="Name of experiment to save under."
     ),
+    epochs: int = typer.Option( 
+        10, "-e", "--epochs", help="Number of epochs to train model."
+    ),
+    batch_size: int = typer.Option( 
+        32, "-b", "--batch_size", help="Size of each batch."
+    ),
+    learning_rate: float = typer.Option( 
+        1e-3, "-l", "--learning_rate", help="Model's learning rate."
+    )
 ):
     print(f"Running experiment {name}")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    epochs = 2
-    batch_size = 1000
-    learning_rate = 0.01
-
     # save the parameters!
+    with open(f"{DATA_DIR}/{name}.json" , "w") as f:
+        f.write(
+            json.dumps((epochs,batch_size,learning_rate))
+        )
 
     # load model
     model = Net().to(device)
