@@ -1,52 +1,52 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from torch import optim
-from torch.utils.data import DataLoader
+import torch
+import torch.nn.functional as F
 
-def train_model(
-    model : nn.Module,
-    optimizer : optim.Optimizer,
-    training_dataloader : DataLoader,
-    validation_dataloader : DataLoader,
-    epochs : int,
-    device : torch.device,
-    print_freq : int = 100, # how often we print batch performance
-):
-    # trains model
-    for epoch in range(epochs):
-        # go through the batches and report progress
-        for i, (images, labels) in enumerate(training_dataloader):
-            images, labels = images.to(device), labels.to(device)
-            model.train()
-            optimizer.zero_grad()
-            output = model(images)
-            loss = F.nll_loss(output, labels)
-            loss.backward()
-            optimizer.step()
-            
-            if not(i % print_freq):
-                print(
-                    f"Train Epoch: {epoch} | Batch: {i}/{len(training_dataloader)} "
-                    f"| Loss: {loss.item():.4f}"
-                )
-            
-        # validate at the end of each epoch
-        val_loss = 0
-        correct = 0
-        with torch.no_grad():
-            for images, labels in validation_dataloader:
-                images, labels = images.to(device), labels.to(device)
-                model.eval()
-                output = model(images)
-                val_loss += F.nll_loss(output, labels, reduction="sum").item()
-                pred = output.argmax(dim=1, keepdim=True)
-                correct += pred.eq(labels.view_as(pred)).sum().item()
-            val_loss /= len(validation_dataloader.dataset)
-            val_acc = correct / len(validation_dataloader.dataset)
+from ser.model import Net
 
-            print(
-                f"Val Epoch: {epoch} | Avg Loss: {val_loss:.4f} | Accuracy: {val_acc}"
-            )
-    
-    return True
+
+def train(run_path, params, train_dataloader, val_dataloader, device):
+    # setup model
+    model = Net().to(device)
+
+    # setup params
+    optimizer = optim.Adam(model.parameters(), lr=params.learning_rate)
+
+    # train
+    for epoch in range(params.epochs):
+        _train_batch(model, train_dataloader, optimizer, epoch, device)
+        _val_batch(model, val_dataloader, device, epoch)
+
+    # save model and save model params
+    torch.save(model, run_path / "model.pt")
+
+
+def _train_batch(model, dataloader, optimizer, epoch, device):
+    for i, (images, labels) in enumerate(dataloader):
+        images, labels = images.to(device), labels.to(device)
+        model.train()
+        optimizer.zero_grad()
+        output = model(images)
+        loss = F.nll_loss(output, labels)
+        loss.backward()
+        optimizer.step()
+        print(
+            f"Train Epoch: {epoch} | Batch: {i}/{len(dataloader)} "
+            f"| Loss: {loss.item():.4f}"
+        )
+
+
+@torch.no_grad()
+def _val_batch(model, dataloader, device, epoch):
+    val_loss = 0
+    correct = 0
+    for images, labels in dataloader:
+        images, labels = images.to(device), labels.to(device)
+        model.eval()
+        output = model(images)
+        val_loss += F.nll_loss(output, labels, reduction="sum").item()
+        pred = output.argmax(dim=1, keepdim=True)
+        correct += pred.eq(labels.view_as(pred)).sum().item()
+    val_loss /= len(dataloader.dataset)
+    accuracy = correct / len(dataloader.dataset)
+    print(f"Val Epoch: {epoch} | Avg Loss: {val_loss:.4f} | Accuracy: {accuracy}")

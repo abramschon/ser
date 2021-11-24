@@ -1,19 +1,17 @@
+from datetime import datetime
 from pathlib import Path
-import torch
-from torch import optim
-
-from ser.model import Net
-from ser.transforms import get_transforms
-from ser.data import get_data_loader
-from ser.train import train_model
 
 import typer
-import json
+import torch
+import git
 
-main = typer.Typer() #
+from ser.train import train as run_train
+from ser.constants import RESULTS_DIR
+from ser.data import train_dataloader, val_dataloader, test_dataloader
+from ser.params import Params, save_params
+from ser.transforms import transforms, normalize
 
-PROJECT_ROOT = Path(__file__).parent.parent
-DATA_DIR = PROJECT_ROOT / "data"
+main = typer.Typer()
 
 
 @main.command()
@@ -24,43 +22,87 @@ def train(
     name: str = typer.Option( 
         ..., "-n", "--name", help="Name of experiment to save under."
     ),
-    epochs: int = typer.Option( 
-        10, "-e", "--epochs", help="Number of epochs to train model."
+    epochs: int = typer.Option(
+        5, "-e", "--epochs", help="Number of epochs to run for."
     ),
-    batch_size: int = typer.Option( 
-        32, "-b", "--batch_size", help="Size of each batch."
+    batch_size: int = typer.Option(
+        1000, "-b", "--batch-size", help="Batch size for dataloader."
     ),
-    learning_rate: float = typer.Option( 
-        1e-3, "-l", "--learning_rate", help="Model's learning rate."
-    )
+    learning_rate: float = typer.Option(
+        0.01, "-l", "--learning-rate", help="Learning rate for the model."
+    ),
 ):
-    print(f"Running experiment {name}")
+    """Run the training algorithm."""
+    repo = git.Repo(search_parent_directories=True)
+    sha = repo.head.object.hexsha
+
+    # wraps the passed in parameters
+    params = Params(name, epochs, batch_size, learning_rate, sha)
+
+    # setup device to run on
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # save the parameters!
-    with open(f"{DATA_DIR}/{name}.json" , "w") as f:
-        f.write(
-            json.dumps((epochs,batch_size,learning_rate))
-        )
 
-    # load model
-    model = Net().to(device)
+    # setup run
+    fmt = "%Y-%m-%dT%H-%M"
+    timestamp = datetime.strftime(datetime.utcnow(), fmt)
+    run_path = RESULTS_DIR / name / timestamp
+    run_path.mkdir(parents=True, exist_ok=True)
 
-    # setup params
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    # Save parameters for the run
+    save_params(run_path, params)
 
-    # torch transforms
-    ts = get_transforms()
-
-    # dataloaders
-    training_dataloader = get_data_loader(DATA_DIR, True, ts, batch_size)
-    validation_dataloader = get_data_loader(DATA_DIR, False, ts, batch_size)
-
-    # train model
-    train_model(model, optimizer, 
-                training_dataloader, validation_dataloader,
-                epochs, device)
+    # Train!
+    run_train(
+        run_path,
+        params,
+        train_dataloader(params.batch_size, transforms(normalize)),
+        val_dataloader(params.batch_size, transforms(normalize)),
+        device,
+    )
 
 
 @main.command()
 def infer():
-    print("This is where the inference code will go")
+    run_path = Path("./path/to/one/of/your/training/runs")
+    label = 6
+
+    # TODO load the parameters from the run_path so we can print them out!
+
+    # select image to run inference for
+    dataloader = test_dataloader(1, transforms(normalize))
+    images, labels = next(iter(dataloader))
+    while labels[0].item() != label:
+        images, labels = next(iter(dataloader))
+
+    # load the model
+    model = torch.load(run_path / "model.pt")
+
+    # run inference
+    model.eval()
+    output = model(images)
+    pred = output.argmax(dim=1, keepdim=True)[0].item()
+    certainty = max(list(torch.exp(output)[0]))
+    pixels = images[0][0]
+    print(generate_ascii_art(pixels))
+    print(f"This is a {pred}")
+
+
+def generate_ascii_art(pixels):
+    ascii_art = []
+    for row in pixels:
+        line = []
+        for pixel in row:
+            line.append(pixel_to_char(pixel))
+        ascii_art.append("".join(line))
+    return "\n".join(ascii_art)
+
+
+def pixel_to_char(pixel):
+    if pixel > 0.99:
+        return "O"
+    elif pixel > 0.9:
+        return "o"
+    elif pixel > 0:
+        return "."
+    else:
+        return " "
