@@ -1,7 +1,10 @@
 # User defined
-data/MNIST
+data/*
 .idea
 results/
+
+# vs code
+.vscode
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
