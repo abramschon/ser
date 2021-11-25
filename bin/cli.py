@@ -88,3 +88,6 @@ def _select_test_image(label):
     while labels[0].item() != label:
         images, labels = next(iter(dataloader))
     return images
+
+if __name__ ==  "__main__":
+    main()
