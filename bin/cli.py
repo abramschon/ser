@@ -17,7 +17,10 @@ main = typer.Typer()
 
 @main.command()
 def train(
-    name: str = typer.Option(
+    # Typer options - make command like arguments better
+    # `...` makes this option mandatory (i.e. users have to pass in this argument)
+    # `help` info that gets printed out if you run `python cli.py --help` 
+    name: str = typer.Option( 
         ..., "-n", "--name", help="Name of experiment to save under."
     ),
     epochs: int = typer.Option(
@@ -87,3 +90,6 @@ def _select_test_image(label, include_flip):
     while labels[0].item() != label:
         images, labels = next(iter(dataloader))
     return images
+
+if __name__ ==  "__main__":
+    main()
